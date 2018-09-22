@@ -1,9 +1,10 @@
+import json
 import requests
 from time import time, ctime
 from urllib.parse import urlparse
 
 
-def send_msg(destination, message):
+def send_msg(dest, msg):
     m = {
         'content': None,
         'content_type': 'openc2',
@@ -13,30 +14,35 @@ def send_msg(destination, message):
         'msg_type': 'request',
         'to': None
     }
-    m.update(message)
+    m.update(msg)
     msg_dump(m)
     assert m['msg_type'] in ['request', 'response', 'notification']
-    assert m['correlation_id'] != None
-    u = urlparse(destination)
-    transfer[u.scheme](destination, m)
+    assert m['content']
+    u = urlparse(dest)
+    transfer[u.scheme](dest, m)
 
 
-def send_https(destination, message):
-    r = requests.get(destination)
+def send_https(dest, msg):
+    ct = {'request': '-cmd', 'response': '-rsp', 'notification': '-not'}[msg['msg_type']]
+    hdr = {h: str(msg[h]) for h in ['correlation_id', 'created', 'to', 'from'] if msg[h]}
+    hdr.update({'content-type': msg['content_type'] + ct + '+json'})
+    d = json.dumps(msg['content'])
+    hdr.update({'content-length': str(len(d))})
+    r = requests.get(dest, headers=hdr, data=d)
     print('Status =', r.status_code)
     print('Headers =', r.headers)
     print('Response =', r.text)
 
 
-def send_coap(destination, message):
+def send_coap(dest, msg):
     print('CoAP Transfer Spec not implemented')
 
 
-def send_mqtt(destination, message):
+def send_mqtt(dest, msg):
     print('MQTT Transfer Spec not implemented')
 
 
-def send_file(destination, message):
+def send_file(dest, msg):
     print('File Transfer Spec not implemented')
 
 
@@ -62,7 +68,7 @@ def msg_dump(m):
 
 if __name__ == '__main__':
     destination = 'http://localhost:8000/api'
-    content = {'action': 'deny'}
+    content = {'action': 'query', 'target': {'openc2': ['profiles']}}
     message = {
         'content': content,
         'correlation_id': '25348',
