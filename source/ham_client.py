@@ -8,14 +8,13 @@ def send_msg(dest, msg):
     m = {
         'content': None,
         'content_type': 'openc2',
+        'msg_type': 'request',
         'correlation_id': None,
         'created': int(1000*time()),
         'from': None,
-        'msg_type': 'request',
         'to': None
     }
     m.update(msg)
-    msg_dump(m)
     assert m['msg_type'] in ['request', 'response', 'notification']
     assert m['content']
     u = urlparse(dest)
@@ -23,11 +22,15 @@ def send_msg(dest, msg):
 
 
 def send_https(dest, msg):
+    hdr_map = {'correlation_id': 'X-Correlation-ID',
+               'created': 'Created',
+               'from': 'Authorization',
+               'to': 'To'}
     ct = {'request': '-cmd', 'response': '-rsp', 'notification': '-not'}[msg['msg_type']]
-    hdr = {h: str(msg[h]) for h in ['correlation_id', 'created', 'to', 'from'] if msg[h]}
-    hdr.update({'content-type': msg['content_type'] + ct + '+json'})
+    hdr = {hdr_map[h]: str(msg[h]) for h in ['correlation_id', 'created', 'to', 'from'] if msg[h]}
+    hdr.update({'Content-Type': msg['content_type'] + ct + '+json'})
     d = json.dumps(msg['content'])
-    hdr.update({'content-length': str(len(d))})
+    hdr.update({'Content-Length': str(len(d))})
     r = requests.get(dest, headers=hdr, data=d)
     print('Status =', r.status_code)
     print('Headers =', r.headers)
@@ -52,18 +55,6 @@ transfer = {
     'mqtt': send_mqtt,
     'file': send_file,
 }
-
-
-def msg_dump(m):
-    print('----------')
-    print('  Content =', m['content'])
-    print('  Content Type =', m['content_type'])
-    print('  Message Type =', m['msg_type'])
-    print('  Correlation ID =', m['correlation_id'])
-    print('  To =', m['to'])
-    print('  From =', m['from'])
-    print('  Created =', ctime(m['created']/1000))
-    print('----------')
 
 
 if __name__ == '__main__':
