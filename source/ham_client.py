@@ -23,7 +23,7 @@ def send_msg(dest, msg):
 
 def send_https(dest, msg):
     hdr_map = {'correlation_id': 'X-Correlation-ID',
-               'created': 'Created',
+               'created': 'Date',
                'from': 'Authorization',
                'to': 'To'}
     ct = {'request': '-cmd', 'response': '-rsp', 'notification': '-not'}[msg['msg_type']]
@@ -59,7 +59,7 @@ transfer = {
 
 if __name__ == '__main__':
     destination = 'http://localhost:8000/api'
-    content = {'action': 'query', 'target': {'openc2': ['profiles']}}
+    content = {'action': 'query', 'target': {'features': ['profiles']}}
     message = {
         'content': content,
         'correlation_id': '25348',
