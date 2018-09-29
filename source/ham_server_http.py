@@ -1,21 +1,25 @@
 import json
+import re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from actuator import actuator
 
 
-class MimeTypeParser:
-    def __init__(self, v):
-        type = 0
+def date_to_ms(date):
+    return 999
+
+
+def ms_to_date(milliseconds):
+    return 'foo GMT'
+
+
+hdr_map = [
+    ('request_id', 'X-Correlation-ID'),
+    ('from', 'Authorization'),
+    ('to', 'To')
+]
+
 
 class HamHandler(BaseHTTPRequestHandler):
-    protocol_version = 'HTTP/1.0'
-
-    hmap = [
-        ('correlation_id', 'x-correlation-id'),
-        ('created', 'date'),
-        ('from', 'authorization'),
-        ('to', 'to')
-    ]
 
     def do_GET(s):
         print('GET: Path =', s.path)
@@ -34,17 +38,25 @@ class HamHandler(BaseHTTPRequestHandler):
         print('HTTP Content:', data)
 
         cm = {'content': json.loads(data)}
-        for m, h in s.hmap:
-            cm[m] = hdrs[h] if h in hdrs else None
-        cm['content_type'] = hdrs['content-type'].split('-', 1)[0]
-        cm['msg_type'] = 'request'
+        for m, h in hdr_map:
+            cm[m] = hdrs[h.lower()] if h.lower() in hdrs else None
+        cm['created'] = date_to_ms(hdrs['date']) if 'date' in hdrs else None
+        ct = re.match('(\w+)/(\w+)-(\w+)(.*)', hdrs['content-type'])
+        cm['content_type'] = ct.group(2)
+        cm['msg_type'] = {'cmd': 'request', 'rsp': 'response', 'not': 'notification)'}[ct.group(3)]
 
         rm = actuator(cm)
 
         s.send_response(rm['status'])
-        s.send_header('Content-type', 'text/plain')
+        mtype = 'rsp'
+        s.send_header('Content-type', 'application/' + rm['content_type'] + '-' + mtype + '+json')
+        if rm['created']:
+            s.send_header('Date', ms_to_date(rm['created']))
+        for h in hdr_map:
+            if rm[h[0]]:
+                s.send_header(h[1], rm[h[0]])
         s.end_headers()
-        s.wfile.write(b"Hello")
+        s.wfile.write(json.dumps(rm['content']).encode('utf8'))
 
 
 if __name__ == '__main__':
